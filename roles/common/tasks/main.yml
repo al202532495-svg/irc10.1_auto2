@@ -1,0 +1,39 @@
+---
+- name: Actualizar cache de apt
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Asegurar paquetes basicos instalados
+  ansible.builtin.package:
+    name:
+      - vim
+      - curl
+      - wget
+      - chrony
+      - ufw
+      - python3
+    state: present
+
+- name: Configurar zona horaria
+  community.general.timezone:
+    name: "{{ timezone }}"
+
+- name: Iniciar y habilitar NTP (chrony)
+  ansible.builtin.service:
+    name: chrony
+    state: started
+    enabled: yes
+
+- name: Permitir puertos en el firewall (ufw)
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: "{{ firewall_allowed_tcp_ports }}"
+  notify: reload firewall
+
+- name: Habilitar ufw
+  community.general.ufw:
+    state: enabled
+    policy: deny

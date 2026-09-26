@@ -1,0 +1,67 @@
+---
+- name: Instalar MariaDB y dependencia de Python
+  ansible.builtin.package:
+    name:
+      - mariadb-server
+      - mariadb-client
+      - python3-pymysql
+    state: present
+
+- name: Aplicar configuracion de MariaDB
+  ansible.builtin.template:
+    src: my.cnf.j2
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ mysql_config_include_files }}"
+  notify: restart mysql
+
+- name: Iniciar y habilitar MariaDB
+  ansible.builtin.service:
+    name: mariadb
+    state: started
+    enabled: yes
+
+- name: Establecer contrasena de root
+  community.mysql.mysql_user:
+    name: root
+    host: "{{ item }}"
+    password: "{{ mysql_root_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+    state: present
+  loop:
+    - localhost
+    - 127.0.0.1
+    - "::1"
+  ignore_errors: yes   # por si la contrasena ya estaba puesta
+
+- name: Crear bases de datos
+  community.mysql.mysql_db:
+    name: "{{ item.name }}"
+    encoding: "{{ item.encoding | default('utf8mb4') }}"
+    collation: "{{ item.collation | default('utf8mb4_general_ci') }}"
+    state: present
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+  loop: "{{ mysql_databases }}"
+
+- name: Crear usuarios de la aplicacion
+  community.mysql.mysql_user:
+    name: "{{ item.name }}"
+    host: "{{ item.host | default('localhost') }}"
+    password: "{{ item.password }}"
+    priv: "{{ item.priv }}"
+    state: present
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    login_unix_socket: /run/mysqld/mysqld.sock
+  loop: "{{ mysql_users }}"
+
+- name: Permitir MySQL en el firewall
+  community.general.ufw:
+    rule: allow
+    port: "3306"
+    proto: tcp
+  notify: reload firewall

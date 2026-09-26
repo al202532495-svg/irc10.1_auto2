@@ -1,0 +1,61 @@
+---
+- name: Instalar Apache
+  ansible.builtin.package:
+    name: apache2
+    state: present
+
+- name: Instalar PHP y modulos necesarios
+  ansible.builtin.package:
+    name: "{{ php_packages }}"
+    state: present
+  notify: restart apache
+
+- name: Crear directorio DocumentRoot
+  ansible.builtin.file:
+    path: "{{ apache_vhosts[0].documentroot }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+- name: Crear archivo info.php
+  ansible.builtin.template:
+    src: info.php.j2
+    dest: "{{ apache_vhosts[0].documentroot }}/info.php"
+    owner: www-data
+    group: www-data
+    mode: '0644'
+
+- name: Configurar VirtualHost de Apache
+  ansible.builtin.template:
+    src: vhost.conf.j2
+    dest: /etc/apache2/sites-available/example.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart apache
+
+- name: Habilitar el sitio example
+  ansible.builtin.command:
+    cmd: a2ensite example.conf
+    creates: /etc/apache2/sites-enabled/example.conf
+  notify: restart apache
+
+- name: Deshabilitar el sitio por defecto
+  ansible.builtin.command:
+    cmd: a2dissite 000-default.conf
+    removes: /etc/apache2/sites-enabled/000-default.conf
+  notify: restart apache
+
+- name: Iniciar y habilitar Apache
+  ansible.builtin.service:
+    name: apache2
+    state: started
+    enabled: yes
+
+- name: Permitir HTTP en el firewall
+  community.general.ufw:
+    rule: allow
+    port: "80"
+    proto: tcp
+  notify: reload firewall

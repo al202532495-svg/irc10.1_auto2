@@ -1,0 +1,13 @@
+# >>> EDITA las IPs por las de TUS VMs Kali <<<
+[webservers]
+web1 ansible_host=10.10.13.29
+
+[dbservers]
+db1  ansible_host=10.10.13.9
+
+[lamp:children]
+webservers
+dbservers
+
+[lamp:vars]
+ansible_user=kali
