@@ -1,0 +1,25 @@
+---
+- name: Tareas básicas en Windows
+  hosts: windows
+  gather_facts: yes
+  tasks:
+    - name: Obtener información del sistema
+      ansible.windows.win_command: systeminfo
+      register: systeminfo
+    - name: Mostrar información del sistema
+      debug:
+        msg: "{{ systeminfo.stdout_lines }}"
+    - name: Crear un directorio
+      ansible.windows.win_file:
+        path: C:\ansible_test
+        state: directory
+    - name: Crear un archivo de texto
+      ansible.windows.win_copy:
+        content: "Archivo creado con Ansible {{ ansible_date_time.date }}"
+        dest: C:\ansible_test\test.txt
+    - name: Obtener el contenido del directorio
+      ansible.windows.win_command: cmd /c dir C:\ansible_test
+      register: dir_result
+    - name: Mostrar contenido del directorio
+      debug:
+        msg: "{{ dir_result.stdout_lines }}"

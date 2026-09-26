@@ -1,0 +1,5 @@
+
+---
+ansible_user: .\monkeys11
+ansible_password: "CAMBIAR_POR_TU_CONTRASENA"
+ansible_winrm_scheme: https

@@ -1,0 +1,14 @@
+---
+- name: Gestionar características de Windows
+  hosts: windows
+  gather_facts: yes
+  tasks:
+    - name: Instalar característica Web-Server (IIS)
+      ansible.windows.win_feature:
+        name: Web-Server
+        state: present
+        include_management_tools: yes
+      register: iis_install
+    - name: Reiniciar si es necesario
+      ansible.windows.win_reboot:
+      when: iis_install.reboot_required

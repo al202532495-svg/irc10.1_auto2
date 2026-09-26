@@ -1,0 +1,26 @@
+---
+- name: Gestionar actualizaciones de Windows
+  hosts: windows
+  gather_facts: yes
+  tasks:
+    - name: Buscar actualizaciones
+      ansible.windows.win_updates:
+        category_names:
+          - SecurityUpdates
+          - CriticalUpdates
+        state: searched
+      register: update_search
+    - name: Mostrar actualizaciones disponibles
+      debug:
+        msg: "{{ update_search.updates | default([]) }}"
+    - name: Instalar actualizaciones críticas y de seguridad
+      ansible.windows.win_updates:
+        category_names:
+          - SecurityUpdates
+          - CriticalUpdates
+        state: installed
+      register: update_result
+      when: update_search.updates is defined and update_search.updates|length > 0
+    - name: Reiniciar si es necesario
+      ansible.windows.win_reboot:
+      when: update_result.reboot_required is defined and update_result.reboot_required
