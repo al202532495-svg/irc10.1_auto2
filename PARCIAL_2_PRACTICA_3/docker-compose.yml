@@ -1,0 +1,91 @@
+# =============================================================================
+#  Floci multi-nube: AWS + Azure + GCP + OCI en una sola VM
+#  Uso:  docker compose up -d      (o ./start.sh, que además confía el cert de Azure)
+# =============================================================================
+name: floci-lab
+
+# Socket de Docker: necesario para servicios que levantan contenedores reales
+# (Lambda, RDS, EC2, EKS, Azure SQL, AKS, Cloud Run, Cloud SQL, GKE, OCI Functions...)
+x-docker-sock: &docker-sock /var/run/docker.sock:/var/run/docker.sock
+
+x-common: &common
+  restart: unless-stopped
+  networks: [floci]
+  # En Rocky con SELinux en modo enforcing, evita que bloquee el acceso al socket
+  security_opt:
+    - label:disable
+  logging:
+    driver: json-file
+    options: { max-size: "20m", max-file: "3" }
+
+services:
+
+  # ---------------------------------------------------------------- AWS :4566
+  floci-aws:
+    <<: *common
+    image: floci/floci:${FLOCI_AWS_TAG:-latest}
+    container_name: floci-aws
+    user: root
+    ports:
+      - "${BIND_ADDR:-127.0.0.1}:4566:4566"
+    volumes:
+      - *docker-sock
+      - ./data/aws:/app/data
+    environment:
+      FLOCI_STORAGE_MODE: ${STORAGE_MODE:-hybrid}
+      FLOCI_DEFAULT_REGION: us-east-1
+      # Que los contenedores sidecar (Lambda, RDS...) se unan a esta red
+      FLOCI_SERVICES_LAMBDA_DOCKER_NETWORK: floci-lab
+      # Consola web en :4500 (http://<host>:4566/_floci/ui)
+      FLOCI_SERVICES_UI_ENABLED: "true"
+      FLOCI_SERVICES_UI_BIND_ADDRESS: ${BIND_ADDR:-127.0.0.1}
+
+  # -------------------------------------------------------------- Azure :4577
+  floci-az:
+    <<: *common
+    image: floci/floci-az:${FLOCI_AZ_TAG:-latest}
+    container_name: floci-az
+    ports:
+      - "${BIND_ADDR:-127.0.0.1}:4577:4577"   # REST + ARM (HTTP y HTTPS en el mismo puerto)
+      - "${BIND_ADDR:-127.0.0.1}:5672:5672"   # Event Hubs AMQP
+      - "${BIND_ADDR:-127.0.0.1}:5673:5673"   # Service Bus AMQP
+      - "${BIND_ADDR:-127.0.0.1}:9093:9093"   # Event Hubs Kafka
+    volumes:
+      - *docker-sock
+      - ./data/azure:/app/data                # también guarda el certificado TLS
+    environment:
+      # OBLIGATORIO para Terraform (azurerm descubre la nube por HTTPS)
+      FLOCI_AZ_TLS_ENABLED: "true"
+
+  # ---------------------------------------------------------------- GCP :4588
+  floci-gcp:
+    <<: *common
+    image: floci/floci-gcp:${FLOCI_GCP_TAG:-latest}
+    container_name: floci-gcp
+    ports:
+      - "${BIND_ADDR:-127.0.0.1}:4588:4588"
+    volumes:
+      - *docker-sock
+      - ./data/gcp:/app/data
+    environment:
+      FLOCI_GCP_STORAGE_MODE: ${STORAGE_MODE:-hybrid}
+      FLOCI_GCP_DEFAULT_PROJECT_ID: floci-local
+      FLOCI_GCP_SERVICES_DOCKER_NETWORK: floci-lab
+
+  # ---------------------------------------------------------------- OCI :4599
+  floci-oci:
+    <<: *common
+    image: floci/floci-oci:${FLOCI_OCI_TAG:-latest}
+    container_name: floci-oci
+    ports:
+      - "${BIND_ADDR:-127.0.0.1}:4599:4599"
+    volumes:
+      - *docker-sock
+      - ./data/oci:/app/data
+    environment:
+      FLOCI_OCI_STORAGE_MODE: ${STORAGE_MODE:-hybrid}
+      FLOCI_OCI_DEFAULT_REGION: us-ashburn-1
+
+networks:
+  floci:
+    name: floci-lab
