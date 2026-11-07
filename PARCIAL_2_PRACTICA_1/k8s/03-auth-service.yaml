@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: microservicios
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: auth-service }
+  template:
+    metadata:
+      labels: { app: auth-service }
+    spec:
+      containers:
+        - name: auth-service
+          image: micro/auth-service:1.0
+          imagePullPolicy: IfNotPresent   # la imagen se construye dentro de minikube
+          ports:
+            - containerPort: 5000
+          env:
+            - name: MONGO_URI
+              valueFrom: { configMapKeyRef: { name: app-config, key: AUTH_MONGO_URI } }
+            - name: JWT_SECRET
+              valueFrom: { secretKeyRef: { name: app-secret, key: JWT_SECRET } }
+            - name: APP_VERSION
+              value: "1.0"
+          readinessProbe:               # ¿listo para recibir trafico?
+            httpGet: { path: /health, port: 5000 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:                # ¿sigue vivo? si no, Kubernetes lo reinicia
+            tcpSocket: { port: 5000 }   # no depende de Mongo, para no reiniciar en bucle si la BD cae
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits:   { cpu: 500m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: microservicios
+spec:
+  selector: { app: auth-service }
+  ports:
+    - port: 5000

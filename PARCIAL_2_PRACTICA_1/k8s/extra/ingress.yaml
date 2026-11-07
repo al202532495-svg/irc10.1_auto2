@@ -1,0 +1,25 @@
+# RETO OPCIONAL: reemplazar el gateway nginx por un Ingress.
+# Requiere: minikube addons enable ingress
+# El Ingress enruta directamente a cada microservicio; el gateway solo sirve el frontend.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-ingress
+  namespace: microservicios
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api/auth
+            pathType: Prefix
+            backend: { service: { name: auth-service, port: { number: 5000 } } }
+          - path: /api/tasks
+            pathType: Prefix
+            backend: { service: { name: tasks-service, port: { number: 5000 } } }
+          - path: /api/dashboard
+            pathType: Prefix
+            backend: { service: { name: dashboard-service, port: { number: 5000 } } }
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: gateway, port: { number: 80 } } }

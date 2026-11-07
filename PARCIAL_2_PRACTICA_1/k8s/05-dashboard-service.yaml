@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard-service
+  namespace: microservicios
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: dashboard-service }
+  template:
+    metadata:
+      labels: { app: dashboard-service }
+    spec:
+      containers:
+        - name: dashboard-service
+          image: micro/dashboard-service:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          env:
+            - name: TASKS_URL
+              valueFrom: { configMapKeyRef: { name: app-config, key: TASKS_URL } }
+            - name: JWT_SECRET
+              valueFrom: { secretKeyRef: { name: app-secret, key: JWT_SECRET } }
+            - name: APP_VERSION
+              value: "1.0"
+          readinessProbe:
+            httpGet: { path: /health, port: 5000 }
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: 5000 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits:   { cpu: 500m, memory: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashboard-service
+  namespace: microservicios
+spec:
+  selector: { app: dashboard-service }
+  ports:
+    - port: 5000

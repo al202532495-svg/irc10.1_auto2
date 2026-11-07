@@ -1,0 +1,82 @@
+# Aplicacion de tareas con 3 microservicios + gateway + 2 bases de datos
+# Uso:  cp .env.example .env  &&  docker compose up -d --build
+#       Abrir http://localhost:8080
+
+services:
+
+  # ---------- Bases de datos: una por servicio ----------
+  mongo-auth:
+    image: mongo:7
+    volumes:
+      - mongo_auth_data:/data/db
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo-tasks:
+    image: mongo:7
+    volumes:
+      - mongo_tasks_data:/data/db
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------- Microservicios ----------
+  auth-service:
+    build: ./auth-service
+    image: micro/auth-service:1.0
+    environment:
+      MONGO_URI: mongodb://mongo-auth:27017/authdb
+      JWT_SECRET: ${JWT_SECRET}
+      APP_VERSION: "1.0"
+    depends_on:
+      mongo-auth:
+        condition: service_healthy
+    networks: [backend]
+    restart: unless-stopped
+
+  tasks-service:
+    build: ./tasks-service
+    image: micro/tasks-service:1.0
+    environment:
+      MONGO_URI: mongodb://mongo-tasks:27017/tasksdb
+      JWT_SECRET: ${JWT_SECRET}
+      APP_VERSION: "1.0"
+    depends_on:
+      mongo-tasks:
+        condition: service_healthy
+    networks: [backend]
+    restart: unless-stopped
+
+  dashboard-service:
+    build: ./dashboard-service
+    image: micro/dashboard-service:1.0
+    environment:
+      TASKS_URL: http://tasks-service:5000
+      JWT_SECRET: ${JWT_SECRET}
+      APP_VERSION: "1.0"
+    networks: [backend]
+    restart: unless-stopped
+
+  # ---------- Punto de entrada unico ----------
+  gateway:
+    build: ./gateway
+    image: micro/gateway:1.0
+    ports:
+      - "8080:80"
+    depends_on: [auth-service, tasks-service, dashboard-service]
+    networks: [backend]
+    restart: unless-stopped
+
+networks:
+  backend:
+
+volumes:
+  mongo_auth_data:
+  mongo_tasks_data:

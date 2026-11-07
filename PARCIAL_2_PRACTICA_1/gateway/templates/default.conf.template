@@ -1,0 +1,34 @@
+# API Gateway: un solo punto de entrada que enruta cada ruta a su microservicio.
+server {
+    listen 80;
+
+    # Resolver DNS dinamico: si un servicio se recrea y cambia de IP,
+    # nginx vuelve a resolver su nombre cada 10 s (clave para el despliegue independiente).
+    resolver ${NGINX_LOCAL_RESOLVERS} valid=10s ipv6=off;
+
+    set $auth      http://${AUTH_HOST}:5000;
+    set $tasks     http://${TASKS_HOST}:5000;
+    set $dashboard http://${DASHBOARD_HOST}:5000;
+
+    proxy_connect_timeout 3s;
+    proxy_read_timeout    10s;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+
+    location /api/auth/      { proxy_pass $auth; }
+    location /api/tasks      { proxy_pass $tasks; }
+    location /api/dashboard/ { proxy_pass $dashboard; }
+
+    # Frontend estatico
+    location / {
+        root  /usr/share/nginx/html;
+        index index.html;
+    }
+
+    # Si un servicio esta caido, devolvemos JSON en lugar de la pagina HTML de nginx
+    error_page 502 503 504 = @caido;
+    location @caido {
+        default_type application/json;
+        return 503 '{"error":"servicio no disponible (gateway)"}';
+    }
+}

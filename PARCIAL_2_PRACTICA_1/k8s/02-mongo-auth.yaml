@@ -1,0 +1,53 @@
+# Base de datos exclusiva del auth-service.
+# Nota: en produccion se usaria un StatefulSet; aqui un Deployment + PVC es suficiente.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongo-auth-pvc
+  namespace: microservicios
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-auth
+  namespace: microservicios
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate          # dos Mongo no pueden usar el mismo volumen a la vez
+  selector:
+    matchLabels: { app: mongo-auth }
+  template:
+    metadata:
+      labels: { app: mongo-auth }
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:7
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: datos
+              mountPath: /data/db
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits:   { memory: 512Mi }
+      volumes:
+        - name: datos
+          persistentVolumeClaim:
+            claimName: mongo-auth-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-auth
+  namespace: microservicios
+spec:
+  selector: { app: mongo-auth }
+  ports:
+    - port: 27017
