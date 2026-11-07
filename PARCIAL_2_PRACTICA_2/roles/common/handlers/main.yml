@@ -1,0 +1,5 @@
+---
+- name: reload firewall
+  service:
+    name: firewalld
+    state: reloaded

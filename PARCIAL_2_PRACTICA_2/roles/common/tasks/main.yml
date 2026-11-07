@@ -1,0 +1,56 @@
+---
+- name: Instalar paquetes básicos (RedHat/Rocky)
+  package:
+    name:
+      - vim
+      - curl
+      - wget
+      - chrony
+      - firewalld
+      - python3
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Instalar paquetes básicos (Debian/Ubuntu)
+  package:
+    name:
+      - vim
+      - curl
+      - wget
+      - chrony
+      - python3
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Configurar zona horaria
+  community.general.timezone:
+    name: "{{ timezone }}"
+
+- name: Iniciar y habilitar servicio de tiempo (chrony)
+  service:
+    name: chronyd
+    state: started
+    enabled: yes
+  when: ansible_os_family == "RedHat"
+
+- name: Iniciar y habilitar servicio de tiempo (chrony en Ubuntu)
+  service:
+    name: chrony
+    state: started
+    enabled: yes
+  when: ansible_os_family == "Debian"
+
+- name: Configurar firewall (solo RedHat/Rocky, tienen firewalld)
+  firewalld:
+    port: "{{ item }}/tcp"
+    permanent: yes
+    state: enabled
+  loop: "{{ firewall_allowed_tcp_ports }}"
+  notify: reload firewall
+  when: ansible_os_family == "RedHat"
+
+- name: Asegurarse de que SELinux esté en modo permisivo (solo RedHat/Rocky)
+  selinux:
+    policy: targeted
+    state: permissive
+  when: ansible_os_family == "RedHat"

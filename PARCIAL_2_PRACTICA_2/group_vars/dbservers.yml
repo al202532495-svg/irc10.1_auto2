@@ -1,0 +1,17 @@
+---
+# Variables específicas para servidores de base de datos
+mysql_root_password: "supersegura"
+mysql_databases:
+  - name: webapp
+    encoding: utf8
+    collation: utf8_general_ci
+
+mysql_users:
+  - name: webapp_user
+    host: "%"
+    password: "userpass"
+    priv: "webapp.*:ALL"
+
+mysql_config_include_files:
+  - src: my.cnf.j2
+    dest: /etc/my.cnf.d/custom.cnf

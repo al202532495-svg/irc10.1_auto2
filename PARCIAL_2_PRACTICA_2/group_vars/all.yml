@@ -1,0 +1,16 @@
+---
+# Variables comunes para todos los servidores
+firewall_allowed_tcp_ports:
+  - 22
+  - 80
+  - 443
+
+ntp_servers:
+  - 0.pool.ntp.org
+  - 1.pool.ntp.org
+
+timezone: "America/Mexico_City"
+
+# Parámetros de seguridad
+security_sudoers_passwordless: ['apache']
+security_autoupdate_enabled: true

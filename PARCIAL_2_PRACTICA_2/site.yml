@@ -1,0 +1,28 @@
+---
+- name: Aplicar configuración común a todos los servidores
+  hosts: lamp
+  become: true
+  collections:
+    - community.general
+    - ansible.posix
+  roles:
+    - common
+
+- name: Configurar servidores web
+  hosts: webservers
+  become: true
+  collections:
+    - community.general
+    - ansible.posix
+  roles:
+    - web
+
+- name: Configurar servidores de base de datos
+  hosts: dbservers
+  become: true
+  collections:
+    - community.general
+    - community.mysql
+    - ansible.posix
+  roles:
+    - db

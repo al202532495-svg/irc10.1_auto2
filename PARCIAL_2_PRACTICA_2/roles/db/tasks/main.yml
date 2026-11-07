@@ -1,0 +1,92 @@
+---
+- name: Instalar paquetes de MariaDB (RedHat/Rocky)
+  package:
+    name:
+      - mariadb-server
+      - python3-PyMySQL
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Instalar paquetes de MariaDB (Debian/Ubuntu)
+  package:
+    name:
+      - mariadb-server
+      - mariadb-client
+      - python3-pymysql
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Iniciar y habilitar MariaDB
+  service:
+    name: mariadb
+    state: started
+    enabled: yes
+
+- name: Definir directorio de configuración de MariaDB (RedHat)
+  set_fact:
+    mysql_conf_dir: /etc/my.cnf.d
+  when: ansible_os_family == "RedHat"
+
+- name: Definir directorio de configuración de MariaDB (Debian)
+  set_fact:
+    mysql_conf_dir: /etc/mysql/mariadb.conf.d
+  when: ansible_os_family == "Debian"
+
+- name: Asegurarse de que el directorio de configuración exista
+  file:
+    path: "{{ mysql_conf_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Configurar MariaDB
+  template:
+    src: my.cnf.j2
+    dest: "{{ mysql_conf_dir }}/custom.cnf"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart mysql
+
+- name: Establecer contraseña de root para MySQL/MariaDB
+  mysql_user:
+    name: root
+    host: "{{ item }}"
+    password: "{{ mysql_root_password }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    state: present
+  loop:
+    - localhost
+    - 127.0.0.1
+    - ::1
+  ignore_errors: yes
+
+- name: Crear bases de datos MySQL
+  mysql_db:
+    name: "{{ item.name }}"
+    encoding: "{{ item.encoding | default('utf8') }}"
+    collation: "{{ item.collation | default('utf8_general_ci') }}"
+    state: present
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  loop: "{{ mysql_databases }}"
+
+- name: Crear usuarios MySQL
+  mysql_user:
+    name: "{{ item.name }}"
+    host: "{{ item.host | default('localhost') }}"
+    password: "{{ item.password }}"
+    priv: "{{ item.priv }}"
+    state: present
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+  loop: "{{ mysql_users }}"
+
+- name: Configurar firewall para MySQL (solo RedHat/Rocky)
+  firewalld:
+    port: 3306/tcp
+    permanent: yes
+    state: enabled
+  notify: reload firewall
+  when: ansible_os_family == "RedHat"
